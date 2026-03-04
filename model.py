@@ -204,25 +204,27 @@ class ModelManager:
         return pickle.Unpickler.find_class(module, name)
     
     def preprocess_text(self, text):
-        """Preprocess text for sentiment prediction."""
+        """Preprocess text for sentiment prediction - fast version."""
         if not self.models_loaded:
             return ""
         
         try:
             text = str(text).lower()
+            # Remove URLs, emails, @mentions, numbers
             text = re.sub(r'http\S+|www\.\S+', '', text)
             text = re.sub(r'\S+@\S+', '', text)
             text = re.sub(r'@\w+', '', text)
             text = re.sub(r'\d+', '', text)
             text = text.translate(str.maketrans('', '', string.punctuation))
             
-            # Handle empty text after cleaning
+            # Handle empty text
             if not text.strip():
                 return "unknown"
             
-            tokens = word_tokenize(text)
+            # Split on whitespace (faster than word_tokenize)
+            tokens = text.split()
             
-            # Use stop_words and lemmatizer only if initialized
+            # Filter short tokens
             if self.stop_words:
                 tokens = [w for w in tokens if w not in self.stop_words and len(w) > 2]
             else:
@@ -231,13 +233,17 @@ class ModelManager:
             # Ensure we have at least one token
             if not tokens:
                 return "unknown"
-                
+            
+            # Lemmatize if available
             if self.lemmatizer:
-                tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
+                try:
+                    tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
+                except:
+                    pass  # If lemmatization fails, use raw tokens
             
             return ' '.join(tokens)
         except Exception as e:
-            print(f"Error in preprocess_text: {e}")
+            print(f"Warning in preprocess_text: {e}")
             return "unknown"
     
     def _precompute_product_scores(self):

@@ -6,6 +6,7 @@ Deployment wrapper for the trained sentiment model + collaborative filtering rec
 from flask import Flask, request, jsonify, render_template
 import pickle
 import os
+import sys
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -17,30 +18,11 @@ app = Flask(__name__)
 PICKLE_DIR = 'pickle'
 
 # ================================
-# Load Artefacts at Startup
-# ================================
-def load_pickle(fname):
-    """Helper function to load pickle files."""
-    with open(os.path.join(PICKLE_DIR, fname), 'rb') as f:
-        return pickle.load(f)
-
-print('Loading deployment artefacts...')
-try:
-    sentiment_model = load_pickle('sentiment_model.pkl')
-    tfidf_vectorizer = load_pickle('tfidf_vectorizer.pkl')
-    cf_recommender = load_pickle('user_based_cf.pkl')
-    master_reviews = load_pickle('master_reviews.pkl')
-    print('✔ All artefacts loaded successfully.')
-except Exception as e:
-    print(f'❌ Error loading artefacts: {e}')
-    print('Make sure to run the notebook first to generate pickle files.')
-    exit(1)
-
-# ================================
-# Text Preprocessing Function
+# Text Preprocessing & Imports
 # ================================
 import re
 import string
+import numpy as np
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -52,6 +34,126 @@ for resource in ['punkt', 'stopwords', 'wordnet', 'omw-1.4']:
 
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words('english'))
+
+# ================================
+# UserBasedCF Class Definition
+# ================================
+class UserBasedCF:
+    """
+    Memory-efficient user-based collaborative filter.
+    - Uses mean-centered cosine similarity to normalise per-user rating scale
+    - Recommends products not yet rated by the target user
+    """
+
+    def __init__(self, top_k_similar: int = 20):
+        self.top_k  = top_k_similar
+        self.matrix = None
+        self.user_index    = {}
+        self.index_product = {}
+        self.product_index = {}
+        self.user_list     = []
+
+    def fit(self, rating_df):
+        """
+        Args:
+            rating_df: user × product matrix (rows=users, cols=products, vals=ratings)
+        """
+        from scipy.sparse import csr_matrix
+        
+        # Mean-center each user's ratings (removes user-level bias)
+        user_means = rating_df.replace(0, np.nan).mean(axis=1)
+        centered   = rating_df.sub(user_means, axis=0).fillna(0)
+
+        self.matrix        = csr_matrix(centered.values)
+        self.user_list     = list(rating_df.index)
+        self.product_list  = list(rating_df.columns)
+        self.user_index    = {u: i for i, u in enumerate(self.user_list)}
+        self.index_product = {i: p for i, p in enumerate(self.product_list)}
+        self.raw_matrix    = csr_matrix(rating_df.values)
+        return self
+
+    def recommend(self, username: str, n: int = 20) -> list:
+        """
+        Returns top-n unrated product names for the given user.
+        Falls back to popularity-based ranking if user not found.
+        """
+        from sklearn.metrics.pairwise import cosine_similarity
+        
+        if username not in self.user_index:
+            # Cold-start: return most-reviewed products
+            product_counts = np.asarray(self.raw_matrix.astype(bool).sum(axis=0)).flatten()
+            top_idxs       = np.argsort(-product_counts)[:n]
+            return [self.index_product[i] for i in top_idxs]
+
+        user_idx  = self.user_index[username]
+        user_vec  = self.matrix[user_idx]
+
+        # Compute similarity to all other users
+        sim_scores  = cosine_similarity(user_vec, self.matrix).flatten()
+        sim_scores[user_idx] = -1  # exclude self
+
+        # Top-k most similar users
+        top_similar = np.argsort(-sim_scores)[:self.top_k]
+        similar_sims = sim_scores[top_similar]
+
+        # Weighted sum of similar users' ratings
+        sim_weights   = similar_sims.reshape(1, -1)
+        neighbor_rows = self.raw_matrix[top_similar]  # shape: (k, products)
+        weighted_sums = sim_weights @ neighbor_rows    # shape: (1, products)
+        weighted_sums = np.asarray(weighted_sums).flatten()
+
+        # Mask already-rated products
+        already_rated = np.asarray(self.raw_matrix[user_idx].todense()).flatten() > 0
+        weighted_sums[already_rated] = -np.inf
+
+        top_idxs = np.argsort(-weighted_sums)[:n]
+        return [self.index_product[i] for i in top_idxs if weighted_sums[i] > -np.inf]
+
+# ================================
+# Custom Pickle Loader with Module Remapping
+# ================================
+class ModuleRemappingUnpickler(pickle.Unpickler):
+    """Custom unpickler that remaps __main__ to current module."""
+    
+    def find_class(self, module, name):
+        # Remap __main__ references to current module
+        if module == '__main__':
+            # Get the current module where this unpickler is defined
+            current_module = sys.modules['__main__']
+            if hasattr(current_module, name):
+                return getattr(current_module, name)
+        return super().find_class(module, name)
+
+def load_pickle(fname):
+    """Helper function to load pickle files with module remapping."""
+    with open(os.path.join(PICKLE_DIR, fname), 'rb') as f:
+        return ModuleRemappingUnpickler(f).load()
+
+# ================================
+# Load Artefacts at Startup
+# ================================
+print('Loading deployment artefacts...')
+try:
+    # Check if pickle directory exists
+    if not os.path.exists(PICKLE_DIR):
+        print(f'❌ Pickle directory not found at {PICKLE_DIR}')
+        print(f'Current directory: {os.getcwd()}')
+        print(f'Directory contents: {os.listdir(".")}')
+        raise FileNotFoundError(f'Pickle directory "{PICKLE_DIR}" not found')
+    
+    sentiment_model = load_pickle('sentiment_model.pkl')
+    tfidf_vectorizer = load_pickle('tfidf_vectorizer.pkl')
+    cf_recommender = load_pickle('user_based_cf.pkl')
+    master_reviews = load_pickle('master_reviews.pkl')
+    print('✔ All artefacts loaded successfully.')
+except Exception as e:
+    print(f'❌ Error loading artefacts: {e}')
+    print('Make sure to run the notebook first to generate pickle files.')
+    # Don't exit - let the app start but return error for API calls
+    sentiment_model = None
+    tfidf_vectorizer = None
+    cf_recommender = None
+    master_reviews = None
 
 def preprocess_text(text):
     """
@@ -137,6 +239,9 @@ def recommend():
     Returns JSON response with recommendations.
     """
     try:
+        if master_reviews is None:
+            return jsonify({'error': 'Models not loaded. Pickle files missing.'}), 503
+        
         data = request.get_json()
         
         if not data or 'username' not in data:
@@ -184,6 +289,9 @@ def analyze_sentiment():
     Returns JSON response with sentiment prediction.
     """
     try:
+        if sentiment_model is None or tfidf_vectorizer is None:
+            return jsonify({'error': 'Sentiment model not loaded'}), 503
+        
         data = request.get_json()
         
         if not data or 'text' not in data:
@@ -225,6 +333,9 @@ def get_users():
     Returns a sample of users in the system.
     """
     try:
+        if master_reviews is None:
+            return jsonify({'error': 'Data not loaded'}), 503
+        
         # Get users with most reviews
         user_counts = master_reviews['reviews_username'].value_counts().head(50)
         users = [{'username': user, 'review_count': int(count)} 
@@ -245,6 +356,9 @@ def get_products():
     Returns a sample of products in the system.
     """
     try:
+        if master_reviews is None:
+            return jsonify({'error': 'Data not loaded'}), 503
+        
         # Get products with most reviews
         product_counts = master_reviews['name'].value_counts().head(50)
         products = [{'product_name': product, 'review_count': int(count)} 
@@ -261,6 +375,13 @@ def get_products():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
+    if master_reviews is None:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': 'Pickle files not loaded',
+            'models_loaded': False
+        }), 503
+    
     return jsonify({
         'status': 'healthy',
         'models_loaded': True,

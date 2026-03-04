@@ -21,12 +21,24 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
-# Download NLTK data
+# Download NLTK data with better error handling
+print("Downloading required NLTK data...")
 for resource in ['punkt', 'stopwords', 'wordnet', 'omw-1.4']:
     try:
         nltk.download(resource, quiet=True)
-    except:
-        pass
+        print(f"✓ Downloaded {resource}")
+    except Exception as e:
+        print(f"⚠ Warning: Could not download {resource}: {e}")
+
+# Verify NLTK data is available
+try:
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
+    test_stops = stopwords.words('english')
+    test_lemma = WordNetLemmatizer()
+    print(f"✓ NLTK data verified (loaded {len(test_stops)} stopwords)")
+except Exception as e:
+    print(f"⚠ NLTK data verification warning: {e}")
 
 # ================================
 # Custom Unpickler for UserBasedCF
@@ -107,8 +119,9 @@ class ModelManager:
         self.master_reviews = None
         self.models_loaded = False
         
-        self.lemmatizer = WordNetLemmatizer()
-        self.stop_words = set(stopwords.words('english'))
+        # Initialize NLTK components (will be set in _load_models)
+        self.lemmatizer = None
+        self.stop_words = None
         
         self._load_models()
     
@@ -117,6 +130,12 @@ class ModelManager:
         try:
             print(f"Current working directory: {os.getcwd()}")
             print(f"Looking for pickle directory: {self.pickle_dir}")
+            
+            # Initialize NLTK components
+            print("Initializing NLTK components...")
+            self.lemmatizer = WordNetLemmatizer()
+            self.stop_words = set(stopwords.words('english'))
+            print("✓ NLTK components initialized")
             
             if not os.path.exists(self.pickle_dir):
                 # List all files in current directory for debugging
@@ -171,6 +190,9 @@ class ModelManager:
     
     def preprocess_text(self, text):
         """Preprocess text for sentiment prediction."""
+        if not self.models_loaded:
+            return ""
+            
         text = str(text).lower()
         text = re.sub(r'http\S+|www\.\S+', '', text)
         text = re.sub(r'\S+@\S+', '', text)
@@ -179,8 +201,15 @@ class ModelManager:
         text = text.translate(str.maketrans('', '', string.punctuation))
         
         tokens = word_tokenize(text)
-        tokens = [w for w in tokens if w not in self.stop_words and len(w) > 2]
-        tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
+        
+        # Use stop_words and lemmatizer only if initialized
+        if self.stop_words:
+            tokens = [w for w in tokens if w not in self.stop_words and len(w) > 2]
+        else:
+            tokens = [w for w in tokens if len(w) > 2]
+            
+        if self.lemmatizer:
+            tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
         
         return ' '.join(tokens)
     

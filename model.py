@@ -262,8 +262,23 @@ class ModelManager:
         
         try:
             cleaned = self.preprocess_text(review_text)
-            vectorized = self.tfidf_vectorizer.transform([cleaned])
-            prediction = self.sentiment_model.predict(vectorized)[0]
+            
+            # Handle empty or unknown text
+            if not cleaned or cleaned == "unknown" or len(cleaned.strip()) == 0:
+                print(f"Cleaned text is empty, returning default sentiment")
+                return 0, 0.5
+            
+            try:
+                vectorized = self.tfidf_vectorizer.transform([cleaned])
+            except Exception as vec_err:
+                print(f"TF-IDF transform error: {vec_err}, using default")
+                return 0, 0.5
+            
+            try:
+                prediction = self.sentiment_model.predict(vectorized)[0]
+            except Exception as pred_err:
+                print(f"Prediction error: {pred_err}, using default")
+                return 0, 0.5
             
             # Try to get confidence, but use fallback if it fails
             try:
@@ -271,12 +286,11 @@ class ModelManager:
                 confidence_score = float(max(confidence))
             except Exception as conf_err:
                 print(f"Warning: Could not get confidence score: {conf_err}")
-                # Use a default confidence of 0.7 if prediction works but confidence doesn't
                 confidence_score = 0.7
             
             return int(prediction), confidence_score
         except Exception as e:
-            print(f"Error in sentiment prediction: {e}")
+            print(f"Critical error in sentiment prediction: {e}")
             import traceback
             traceback.print_exc()
             return None, None

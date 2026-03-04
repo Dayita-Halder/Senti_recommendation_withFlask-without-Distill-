@@ -7,7 +7,15 @@ import os
 import pickle
 import re
 import string
-import numpy as np
+
+# Import numpy with version check
+try:
+    import numpy as np
+    print(f"NumPy version: {np.__version__}")
+except ImportError as e:
+    print(f"CRITICAL: Failed to import numpy: {e}")
+    raise
+
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer

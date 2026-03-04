@@ -207,26 +207,38 @@ class ModelManager:
         """Preprocess text for sentiment prediction."""
         if not self.models_loaded:
             return ""
+        
+        try:
+            text = str(text).lower()
+            text = re.sub(r'http\S+|www\.\S+', '', text)
+            text = re.sub(r'\S+@\S+', '', text)
+            text = re.sub(r'@\w+', '', text)
+            text = re.sub(r'\d+', '', text)
+            text = text.translate(str.maketrans('', '', string.punctuation))
             
-        text = str(text).lower()
-        text = re.sub(r'http\S+|www\.\S+', '', text)
-        text = re.sub(r'\S+@\S+', '', text)
-        text = re.sub(r'@\w+', '', text)
-        text = re.sub(r'\d+', '', text)
-        text = text.translate(str.maketrans('', '', string.punctuation))
-        
-        tokens = word_tokenize(text)
-        
-        # Use stop_words and lemmatizer only if initialized
-        if self.stop_words:
-            tokens = [w for w in tokens if w not in self.stop_words and len(w) > 2]
-        else:
-            tokens = [w for w in tokens if len(w) > 2]
+            # Handle empty text after cleaning
+            if not text.strip():
+                return "unknown"
             
-        if self.lemmatizer:
-            tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
-        
-        return ' '.join(tokens)
+            tokens = word_tokenize(text)
+            
+            # Use stop_words and lemmatizer only if initialized
+            if self.stop_words:
+                tokens = [w for w in tokens if w not in self.stop_words and len(w) > 2]
+            else:
+                tokens = [w for w in tokens if len(w) > 2]
+            
+            # Ensure we have at least one token
+            if not tokens:
+                return "unknown"
+                
+            if self.lemmatizer:
+                tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
+            
+            return ' '.join(tokens)
+        except Exception as e:
+            print(f"Error in preprocess_text: {e}")
+            return "unknown"
     
     def _precompute_product_scores(self):
         """Precompute product positive sentiment ratios for fast recommendations."""
@@ -302,24 +314,33 @@ class ModelManager:
         Analyze review sentiment and recommend similar positive products.
         Returns: sentiment (0/1), confidence, recommended products
         """
-        sentiment, confidence = self.predict_sentiment(review_text)
-        
-        if sentiment is None:
-            return None, None, []
-        
-        if not self.models_loaded:
-            return sentiment, confidence, []
-        
         try:
-            # Use precomputed product scores for fast recommendations
-            recs = sorted(self.product_scores.items(), key=lambda x: x[1], reverse=True)
-            recommendations = [p[0] for p in recs[:n_recommendations]]
+            if not review_text or not review_text.strip():
+                return None, None, []
             
-            return sentiment, confidence, recommendations
+            sentiment, confidence = self.predict_sentiment(review_text)
+            
+            if sentiment is None:
+                return None, None, []
+            
+            if not self.models_loaded:
+                return sentiment, confidence, []
+            
+            try:
+                # Use precomputed product scores for fast recommendations
+                recs = sorted(self.product_scores.items(), key=lambda x: x[1], reverse=True)
+                recommendations = [p[0] for p in recs[:n_recommendations]]
+                
+                return sentiment, confidence, recommendations
+            except Exception as rec_err:
+                print(f"Error getting recommendations: {rec_err}")
+                return sentiment, confidence, []
         
         except Exception as e:
-            print(f"Error in sentiment-based recommendations: {e}")
-            return sentiment, confidence, []
+            print(f"Critical error in sentiment_based_recommend: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None, []
 
 
 # Global model manager instance

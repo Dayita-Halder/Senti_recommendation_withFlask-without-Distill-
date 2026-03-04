@@ -450,30 +450,42 @@
             errorBox.classList.remove('show');
             submitBtn.disabled = true;
             submitBtn.classList.add('loading');
+            submitBtn.textContent = 'Processing...';
             resultsSection.classList.remove('show');
 
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
                 const response = await fetch('/api/sentiment-recommend', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ review, n_recommendations: nRecs })
+                    body: JSON.stringify({ review, n_recommendations: nRecs }),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    showError(data.error || 'An error occurred. Please try again.');
+                    showError(data.error || `Error: ${response.status} - ${response.statusText}`);
                     return;
                 }
 
                 displayResults(data);
 
             } catch (error) {
-                showError('Network error. Please check your connection and try again.');
+                if (error.name === 'AbortError') {
+                    showError('Request timeout - server is taking too long. Try a shorter review.');
+                } else {
+                    showError('Network error: ' + error.message);
+                }
                 console.error('Error:', error);
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('loading');
+                submitBtn.textContent = 'Analyze & Get Recommendations';
             }
         });
 

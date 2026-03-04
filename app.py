@@ -34,14 +34,28 @@ def sentiment_recommend():
         if not model_manager.models_loaded:
             return jsonify({"error": "Models not loaded. Pickle files missing. Please check /health"}), 503
         
+        # Check review length
+        if len(review_text) > 5000:
+            return jsonify({"error": "Review too long. Please keep it under 5000 characters."}), 400
+        
         n_recs = data.get('n_recommendations', 5)
-        sentiment, confidence, recommendations = model_manager.sentiment_based_recommend(
-            review_text, 
-            n_recommendations=int(n_recs)
-        )
+        n_recs = max(1, min(int(n_recs), 10))  # Clamp between 1 and 10
+        
+        try:
+            sentiment, confidence, recommendations = model_manager.sentiment_based_recommend(
+                review_text, 
+                n_recommendations=n_recs
+            )
+        except ValueError as ve:
+            return jsonify({"error": f"Invalid input format: {str(ve)}"}), 400
+        except Exception as process_err:
+            import traceback
+            print(f"Processing error: {process_err}")
+            traceback.print_exc()
+            return jsonify({"error": f"Error processing review: {str(process_err)}"}), 500
         
         if sentiment is None:
-            return jsonify({"error": "Sentiment prediction failed"}), 500
+            return jsonify({"error": "Could not analyze sentiment. Please try a different review."}), 500
         
         return jsonify({
             "sentiment": int(sentiment),
@@ -52,7 +66,10 @@ def sentiment_recommend():
         })
     
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Endpoint error: {e}\n{error_trace}")
+        return jsonify({"error": f"Unexpected error: {type(e).__name__} - {str(e)}"}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health():

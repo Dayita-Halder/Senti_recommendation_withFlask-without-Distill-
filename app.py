@@ -109,6 +109,36 @@ def debug():
     
     return jsonify(debug_info)
 
+@app.route('/api/test-sentiment', methods=['GET'])
+def test_sentiment():
+    """Test endpoint to debug sentiment prediction."""
+    import time
+    
+    test_review = "This is an amazing product! Love it!"
+    start = time.time()
+    
+    try:
+        sent, conf, recs = model_manager.sentiment_based_recommend(test_review, 5)
+        elapsed = time.time() - start
+        
+        return jsonify({
+            "status": "success",
+            "sentiment": int(sent) if sent is not None else None,
+            "confidence": round(conf * 100, 2) if conf else None,
+            "recommendations_count": len(recs),
+            "sample_recs": recs[:3],
+            "elapsed_seconds": round(elapsed, 3)
+        })
+    except Exception as e:
+        elapsed = time.time() - start
+        import traceback
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "elapsed_seconds": round(elapsed, 3)
+        }), 500
+
 if __name__ == '__main__':
     print('\n' + '='*70)
     print('🚀 Sentiment-Based Recommendation System')

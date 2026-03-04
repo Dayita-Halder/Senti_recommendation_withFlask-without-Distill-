@@ -20,6 +20,74 @@ for resource in ['punkt', 'stopwords', 'wordnet', 'omw-1.4']:
     except:
         pass
 
+# ================================
+# Custom Unpickler for UserBasedCF
+# ================================
+class CustomUnpickler(pickle.Unpickler):
+    """Custom unpickler that knows about UserBasedCF."""
+    
+    def find_class(self, module, name):
+        if name == 'UserBasedCF':
+            return UserBasedCF
+        return super().find_class(module, name)
+class UserBasedCF:
+    """
+    User-based collaborative filtering recommender.
+    Uses mean-centered cosine similarity.
+    """
+    
+    def __init__(self, top_k_similar: int = 20):
+        self.top_k  = top_k_similar
+        self.matrix = None
+        self.user_index = {}
+        self.index_product = {}
+        self.user_list = []
+        self.raw_matrix = None
+
+    def fit(self, rating_df):
+        """Fit the model to ratings."""
+        from scipy.sparse import csr_matrix
+        
+        user_means = rating_df.replace(0, np.nan).mean(axis=1)
+        centered = rating_df.sub(user_means, axis=0).fillna(0)
+        
+        self.matrix = csr_matrix(centered.values)
+        self.user_list = list(rating_df.index)
+        self.product_list = list(rating_df.columns)
+        self.user_index = {u: i for i, u in enumerate(self.user_list)}
+        self.index_product = {i: p for i, p in enumerate(self.product_list)}
+        self.raw_matrix = csr_matrix(rating_df.values)
+        return self
+
+    def recommend(self, username: str, n: int = 20) -> list:
+        """Get top-n recommendations for a user."""
+        from sklearn.metrics.pairwise import cosine_similarity
+        
+        if username not in self.user_index:
+            product_counts = np.asarray(self.raw_matrix.astype(bool).sum(axis=0)).flatten()
+            top_idxs = np.argsort(-product_counts)[:n]
+            return [self.index_product[i] for i in top_idxs]
+        
+        user_idx = self.user_index[username]
+        user_vec = self.matrix[user_idx]
+        
+        sim_scores = cosine_similarity(user_vec, self.matrix).flatten()
+        sim_scores[user_idx] = -1
+        
+        top_similar = np.argsort(-sim_scores)[:self.top_k]
+        similar_sims = sim_scores[top_similar]
+        
+        sim_weights = similar_sims.reshape(1, -1)
+        neighbor_rows = self.raw_matrix[top_similar]
+        weighted_sums = sim_weights @ neighbor_rows
+        weighted_sums = np.asarray(weighted_sums).flatten()
+        
+        already_rated = np.asarray(self.raw_matrix[user_idx].todense()).flatten() > 0
+        weighted_sums[already_rated] = -np.inf
+        
+        top_idxs = np.argsort(-weighted_sums)[:n]
+        return [self.index_product[i] for i in top_idxs if weighted_sums[i] > -np.inf]
+
 class ModelManager:
     """Manages loading and using ML models for sentiment analysis and recommendations."""
     
@@ -42,16 +110,25 @@ class ModelManager:
             if not os.path.exists(self.pickle_dir):
                 raise FileNotFoundError(f"Pickle directory not found: {self.pickle_dir}")
             
-            with open(os.path.join(self.pickle_dir, 'sentiment_model.pkl'), 'rb') as f:
+            sentiment_path = os.path.join(self.pickle_dir, 'sentiment_model.pkl')
+            tfidf_path = os.path.join(self.pickle_dir, 'tfidf_vectorizer.pkl')
+            cf_path = os.path.join(self.pickle_dir, 'user_based_cf.pkl')
+            master_path = os.path.join(self.pickle_dir, 'master_reviews.pkl')
+            
+            # Load sentiment model
+            with open(sentiment_path, 'rb') as f:
                 self.sentiment_model = pickle.load(f)
             
-            with open(os.path.join(self.pickle_dir, 'tfidf_vectorizer.pkl'), 'rb') as f:
+            # Load TF-IDF vectorizer
+            with open(tfidf_path, 'rb') as f:
                 self.tfidf_vectorizer = pickle.load(f)
             
-            with open(os.path.join(self.pickle_dir, 'user_based_cf.pkl'), 'rb') as f:
-                self.cf_recommender = pickle.load(f)
+            # Load CF recommender with custom unpickler
+            with open(cf_path, 'rb') as f:
+                self.cf_recommender = CustomUnpickler(f).load()
             
-            with open(os.path.join(self.pickle_dir, 'master_reviews.pkl'), 'rb') as f:
+            # Load master reviews
+            with open(master_path, 'rb') as f:
                 self.master_reviews = pickle.load(f)
             
             self.models_loaded = True
@@ -59,7 +136,16 @@ class ModelManager:
         
         except Exception as e:
             print(f"✗ Error loading models: {e}")
+            import traceback
+            traceback.print_exc()
             self.models_loaded = False
+    
+    @staticmethod
+    def _find_class_helper(module, name):
+        """Helper to find UserBasedCF class from current module."""
+        if name == 'UserBasedCF':
+            return UserBasedCF
+        return pickle.Unpickler.find_class(module, name)
     
     def preprocess_text(self, text):
         """Preprocess text for sentiment prediction."""

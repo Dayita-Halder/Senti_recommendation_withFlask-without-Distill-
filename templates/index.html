@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentiment-Based Product Recommendation System</title>
+    <title>Sentiment-Based Recommendation System</title>
     <style>
         * {
             margin: 0;
@@ -16,10 +16,11 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            color: #333;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
         }
 
@@ -27,430 +28,487 @@
             text-align: center;
             color: white;
             margin-bottom: 40px;
+            animation: slideDown 0.6s ease-out;
         }
 
-        h1 {
+        header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
-        .subtitle {
+        header p {
             font-size: 1.1em;
-            opacity: 0.9;
+            opacity: 0.95;
         }
 
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
+        .main-card {
             background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        .card h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-            font-size: 1.8em;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            animation: slideUp 0.6s ease-out;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            color: #333;
             font-weight: 600;
-            font-size: 0.95em;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.05em;
         }
 
-        input[type="text"],
-        input[type="number"],
         textarea {
             width: 100%;
-            padding: 12px;
+            min-height: 120px;
+            padding: 12px 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
+            font-family: 'Segoe UI', sans-serif;
             font-size: 1em;
-            transition: border-color 0.3s;
+            resize: vertical;
+            transition: border-color 0.3s ease;
         }
 
-        input[type="text"]:focus,
-        input[type="number"]:focus,
         textarea:focus {
             outline: none;
             border-color: #667eea;
+            background-color: #fafafa;
         }
 
-        textarea {
-            resize: vertical;
-            min-height: 100px;
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        input[type="number"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background-color: #fafafa;
         }
 
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 14px 30px;
-            font-size: 1em;
-            font-weight: 600;
+            padding: 12px 40px;
             border-radius: 8px;
+            font-size: 1.05em;
+            font-weight: 600;
             cursor: pointer;
-            width: 100%;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
 
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
         button:active {
             transform: translateY(0);
         }
 
-        .results {
-            margin-top: 25px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .results h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-
-        .recommendation-item {
-            background: white;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .recommendation-item h4 {
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .stats {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .positive-ratio {
-            display: inline-block;
-            background: #4caf50;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.85em;
-        }
-
-        .sentiment-positive {
-            color: #4caf50;
-            font-weight: 600;
-        }
-
-        .sentiment-negative {
-            color: #f44336;
-            font-weight: 600;
-        }
-
-        .error {
-            background: #ffebee;
-            color: #c62828;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border-left: 4px solid #c62828;
-        }
-
-        .loading {
-            text-align: center;
-            color: #667eea;
-            font-weight: 600;
-            padding: 20px;
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
             animation: spin 1s linear infinite;
-            margin: 20px auto;
+            margin-right: 10px;
+            vertical-align: middle;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
 
-        .info-box {
-            background: #e3f2fd;
-            padding: 15px;
+        button.loading .spinner {
+            display: inline-block;
+        }
+
+        .results {
+            display: none;
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
             border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #2196f3;
-            font-size: 0.9em;
-            color: #1565c0;
+            border-left: 5px solid #667eea;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .sentiment-result {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .sentiment-label {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sentiment-positive {
+            color: #28a745;
+        }
+
+        .sentiment-negative {
+            color: #dc3545;
         }
 
         .confidence-bar {
             width: 100%;
-            height: 20px;
+            height: 25px;
             background: #e0e0e0;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
             margin-top: 10px;
         }
 
         .confidence-fill {
             height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            transition: width 0.5s ease;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 0.75em;
+            font-size: 0.9em;
             font-weight: 600;
+            transition: width 0.5s ease;
+        }
+
+        .review-preview {
+            font-style: italic;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+        }
+
+        .recommendations-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .recommendations-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .recommendation-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+
+        .recommendation-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .recommendation-item strong {
+            display: block;
+            color: #667eea;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+
+        .recommendation-item em {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .error {
+            display: none;
+            padding: 15px 20px;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+            color: #0c5460;
+        }
+
+        .loading-dots {
+            display: inline-block;
+            margin-left: 5px;
+        }
+
+        .loading-dots span {
+            animation: bounce 1.4s infinite;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { opacity: 0.4; }
+            40% { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: white;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .main-card {
+                padding: 20px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .recommendations-list {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🛍️ Sentiment-Based Product Recommender</h1>
-            <p class="subtitle">AI-Powered recommendations using Collaborative Filtering + NLP Sentiment Analysis</p>
+            <h1>🎯 Sentiment-Based Recommendations</h1>
+            <p>Share your review and discover products you'll love</p>
         </header>
 
-        <div class="main-content">
-            <!-- Recommendation Section -->
-            <div class="card">
-                <h2>📊 Get Product Recommendations</h2>
-                <div class="info-box">
-                    💡 Enter a username to get personalized product recommendations based on sentiment analysis
-                </div>
-                
-                <form id="recommendForm">
-                    <div class="form-group">
-                        <label for="username">Username:</label>
-                        <input type="text" id="username" name="username" placeholder="Enter username" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="num_candidates">Number of Candidates (10-50):</label>
-                        <input type="number" id="num_candidates" name="num_candidates" value="20" min="10" max="50">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="num_recommendations">Number of Recommendations (1-10):</label>
-                        <input type="number" id="num_recommendations" name="num_recommendations" value="5" min="1" max="10">
-                    </div>
-
-                    <button type="submit">Get Recommendations</button>
-                </form>
-
-                <div id="recommendResults"></div>
+        <div class="main-card">
+            <div class="info-box">
+                💡 <strong>How it works:</strong> Write a product review below. Our AI will analyze your sentiment and recommend similar products you might enjoy!
             </div>
 
-            <!-- Sentiment Analysis Section -->
-            <div class="card">
-                <h2>💬 Analyze Review Sentiment</h2>
-                <div class="info-box">
-                    💡 Enter a product review to analyze its sentiment (Positive/Negative)
+            <form id="reviewForm">
+                <div class="form-group">
+                    <label for="review">Your Product Review:</label>
+                    <textarea id="review" name="review" placeholder="Enter your honest product review here... (e.g., 'This phone is absolutely amazing! Great camera and long battery life...')" required></textarea>
                 </div>
-                
-                <form id="sentimentForm">
-                    <div class="form-group">
-                        <label for="reviewText">Review Text:</label>
-                        <textarea id="reviewText" name="text" placeholder="Enter product review text..." required></textarea>
+
+                <div class="form-group">
+                    <label>Recommendation Settings:</label>
+                    <div class="input-group">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.9em; color: #666;">Number of Recommendations (1-10):</label>
+                            <input type="number" id="nRecs" name="n_recommendations" min="1" max="10" value="5">
+                        </div>
+                        <button type="submit" style="align-self: flex-end;">
+                            <span class="spinner"></span>
+                            Analyze & Recommend
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="error" id="errorBox"></div>
+
+            <div class="results" id="results">
+                <div class="sentiment-result">
+                    <div class="sentiment-label" id="sentimentLabel"></div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong>Confidence Score:</strong>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidenceFill" style="width: 0%;"></div>
+                        </div>
                     </div>
 
-                    <button type="submit">Analyze Sentiment</button>
-                </form>
+                    <div class="review-preview" id="reviewPreview"></div>
+                </div>
 
-                <div id="sentimentResults"></div>
+                <div>
+                    <div class="recommendations-title">📦 Recommended Products:</div>
+                    <div class="recommendations-list" id="recommendationsList"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Additional Information -->
-        <div class="card">
-            <h2>ℹ️ About This System</h2>
-            <p style="line-height: 1.8; color: #555;">
-                This system combines <strong>Collaborative Filtering</strong> and <strong>Sentiment Analysis</strong> 
-                to provide high-quality product recommendations. First, it uses user-based collaborative filtering 
-                to find candidate products similar users liked. Then, it applies NLP sentiment analysis on product 
-                reviews to filter and rank recommendations based on positive sentiment ratio.
-            </p>
-            <div style="margin-top: 20px;">
-                <h3 style="color: #667eea; margin-bottom: 10px;">API Endpoints:</h3>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 5px;">
-                        <strong>POST /api/recommend</strong> - Get product recommendations for a user
-                    </li>
-                    <li style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 5px;">
-                        <strong>POST /api/sentiment</strong> - Analyze sentiment of a review text
-                    </li>
-                    <li style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 5px;">
-                        <strong>GET /api/users</strong> - Get list of available users
-                    </li>
-                    <li style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 5px;">
-                        <strong>GET /api/products</strong> - Get list of available products
-                    </li>
-                    <li style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 5px;">
-                        <strong>GET /health</strong> - System health check
-                    </li>
-                </ul>
-            </div>
-        </div>
+        <footer>
+            <p>Sentiment-Based Product Recommendation System | Privacy-First Analysis</p>
+        </footer>
     </div>
 
     <script>
-        // Recommendation Form Handler
-        document.getElementById('recommendForm').addEventListener('submit', async (e) => {
+        const form = document.getElementById('reviewForm');
+        const errorBox = document.getElementById('errorBox');
+        const resultsSection = document.getElementById('results');
+        const sentimentLabel = document.getElementById('sentimentLabel');
+        const confidenceFill = document.getElementById('confidenceFill');
+        const reviewPreview = document.getElementById('reviewPreview');
+        const recommendationsList = document.getElementById('recommendationsList');
+        const submitBtn = form.querySelector('button');
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const resultsDiv = document.getElementById('recommendResults');
-            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Getting recommendations...</div>';
-            
-            const username = document.getElementById('username').value;
-            const num_candidates = parseInt(document.getElementById('num_candidates').value);
-            const num_recommendations = parseInt(document.getElementById('num_recommendations').value);
-            
+            const review = document.getElementById('review').value.trim();
+            const nRecs = parseInt(document.getElementById('nRecs').value);
+
+            if (!review) {
+                showError('Please enter a product review');
+                return;
+            }
+
+            errorBox.classList.remove('show');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+            resultsSection.classList.remove('show');
+
             try {
-                const response = await fetch('/api/recommend', {
+                const response = await fetch('/api/sentiment-recommend', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        num_candidates: num_candidates,
-                        num_recommendations: num_recommendations
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ review, n_recommendations: nRecs })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (!response.ok) {
-                    resultsDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                    showError(data.error || 'An error occurred. Please try again.');
                     return;
                 }
-                
-                let html = '<div class="results">';
-                html += `<h3>✅ Top ${data.recommendations.length} Recommendations for "${data.username}"</h3>`;
-                html += `<p style="color: #666; margin-bottom: 15px;">Analyzed ${data.total_candidates} candidate products</p>`;
-                
-                data.recommendations.forEach((rec, index) => {
-                    const percentage = (rec.positive_ratio * 100).toFixed(1);
-                    html += `
-                        <div class="recommendation-item">
-                            <h4>${index + 1}. ${rec.product}</h4>
-                            <div class="stats">
-                                <div class="stat-item">
-                                    <span>✓ Positive: <strong>${rec.positive_count}</strong></span>
-                                </div>
-                                <div class="stat-item">
-                                    <span>📝 Total Reviews: <strong>${rec.total_reviews}</strong></span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="positive-ratio">${percentage}% Positive</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += '</div>';
-                resultsDiv.innerHTML = html;
-                
+
+                displayResults(data);
+
             } catch (error) {
-                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                showError('Network error. Please check your connection and try again.');
+                console.error('Error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('loading');
             }
         });
-        
-        // Sentiment Analysis Form Handler
-        document.getElementById('sentimentForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+
+        function displayResults(data) {
+            const sentimentEmoji = data.sentiment === 1 ? '✓' : '✗';
+            const sentimentClass = data.sentiment === 1 ? 'sentiment-positive' : 'sentiment-negative';
+
+            sentimentLabel.innerHTML = `<span class="${sentimentClass}">${sentimentEmoji} ${data.sentiment_label}</span>`;
             
-            const resultsDiv = document.getElementById('sentimentResults');
-            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Analyzing sentiment...</div>';
-            
-            const text = document.getElementById('reviewText').value;
-            
-            try {
-                const response = await fetch('/api/sentiment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ text: text })
+            confidenceFill.style.width = data.confidence + '%';
+            confidenceFill.textContent = data.confidence + '%';
+
+            reviewPreview.textContent = '"' + data.review_preview + '"';
+
+            recommendationsList.innerHTML = '';
+            if (data.recommendations.length > 0) {
+                data.recommendations.forEach((product, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'recommendation-item';
+                    item.innerHTML = `<strong>🏆 ${product}</strong><em>Recommendation #${index + 1}</em>`;
+                    recommendationsList.appendChild(item);
                 });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    resultsDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
-                    return;
-                }
-                
-                const sentimentClass = data.sentiment === 'Positive' ? 'sentiment-positive' : 'sentiment-negative';
-                const confidencePercent = (data.confidence * 100).toFixed(1);
-                const emoji = data.sentiment === 'Positive' ? '😊' : '😞';
-                
-                let html = '<div class="results">';
-                html += `<h3>Analysis Results ${emoji}</h3>`;
-                html += `<p><strong>Sentiment:</strong> <span class="${sentimentClass}">${data.sentiment}</span></p>`;
-                html += `<p><strong>Confidence:</strong> ${confidencePercent}%</p>`;
-                html += `<div class="confidence-bar">
-                            <div class="confidence-fill" style="width: ${confidencePercent}%">${confidencePercent}%</div>
-                         </div>`;
-                html += `<p style="margin-top: 15px;"><strong>Processed Text:</strong><br>${data.processed_text || 'N/A'}</p>`;
-                html += `<p style="margin-top: 10px;"><strong>Probabilities:</strong></p>`;
-                html += `<div class="stats">
-                            <div class="stat-item">Negative: ${(data.probabilities.negative * 100).toFixed(1)}%</div>
-                            <div class="stat-item">Positive: ${(data.probabilities.positive * 100).toFixed(1)}%</div>
-                         </div>`;
-                html += '</div>';
-                
-                resultsDiv.innerHTML = html;
-                
-            } catch (error) {
-                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            } else {
+                recommendationsList.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No products found matching your preferences.</p>';
             }
-        });
+
+            resultsSection.classList.add('show');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showError(message) {
+            errorBox.textContent = '❌ ' + message;
+            errorBox.classList.add('show');
+            resultsSection.classList.remove('show');
+        }
     </script>
 </body>
 </html>

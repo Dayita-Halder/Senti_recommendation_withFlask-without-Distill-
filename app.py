@@ -14,6 +14,12 @@ def index():
     """Serve the main web interface."""
     return render_template('index.html')
 
+@app.route('/api/echo', methods=['POST'])
+def echo():
+    """Echo test endpoint."""
+    data = request.json
+    return jsonify({"echo": data.get('review', 'no data')}), 200
+
 @app.route('/api/sentiment-recommend', methods=['POST'])
 def sentiment_recommend():
     """

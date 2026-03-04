@@ -17,6 +17,13 @@ except ImportError as e:
     raise
 
 import nltk
+
+# Set NLTK data path to a writable location (important for Railway/cloud deployments)
+nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
+os.makedirs(nltk_data_dir, exist_ok=True)
+nltk.data.path.insert(0, nltk_data_dir)
+print(f"NLTK data directory: {nltk_data_dir}")
+
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
@@ -25,7 +32,7 @@ from nltk.tokenize import word_tokenize
 print("Downloading required NLTK data...")
 for resource in ['punkt', 'stopwords', 'wordnet', 'omw-1.4']:
     try:
-        nltk.download(resource, quiet=True)
+        nltk.download(resource, download_dir=nltk_data_dir, quiet=True)
         print(f"✓ Downloaded {resource}")
     except Exception as e:
         print(f"⚠ Warning: Could not download {resource}: {e}")

@@ -21,4 +21,5 @@ fi
 
 # Start the app
 echo "=== Starting application ==="
-exec gunicorn -w 4 -b 0.0.0.0:$PORT app:app
+echo "Starting gunicorn with 4 workers, 120s timeout..."
+exec gunicorn -w 4 -b 0.0.0.0:$PORT --timeout 120 --access-logfile - --error-logfile - app:app

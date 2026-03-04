@@ -1,16 +1,17 @@
 """
-Vercel deployment wrapper for Flask app.
-Exposes the Flask app for Vercel's serverless environment.
+Flask app entry point for Vercel serverless deployment.
 """
 
 import sys
 import os
 
-# Add parent directory to path to import app
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
+# Import Flask app
 from app import app
 
-# Export the Flask app for Vercel
-def handler(request):
-    return app(request)
+# For Vercel serverless
+if __name__ == "__main__":
+    app.run()

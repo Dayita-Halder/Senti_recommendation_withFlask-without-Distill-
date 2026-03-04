@@ -179,6 +179,11 @@ class ModelManager:
             with open(master_path, 'rb') as f:
                 self.master_reviews = pickle.load(f)
             
+            # Precompute product scores for faster recommendations
+            print("Precomputing product scores...")
+            self.product_scores = self._precompute_product_scores()
+            print(f"✓ Precomputed scores for {len(self.product_scores)} products")
+            
             self.models_loaded = True
             print("✓ All models loaded successfully")
         
@@ -222,6 +227,15 @@ class ModelManager:
             tokens = [self.lemmatizer.lemmatize(w) for w in tokens]
         
         return ' '.join(tokens)
+    
+    def _precompute_product_scores(self):
+        """Precompute product positive sentiment ratios for fast recommendations."""
+        product_scores = {}
+        for product in self.master_reviews['name'].unique():
+            product_reviews = self.master_reviews[self.master_reviews['name'] == product]
+            positive_pct = (product_reviews['sentiment_label'] == 1).sum() / len(product_reviews)
+            product_scores[product] = positive_pct
+        return product_scores
     
     def predict_sentiment(self, review_text):
         """Predict sentiment for a review (1=Positive, 0=Negative)."""
@@ -287,31 +301,9 @@ class ModelManager:
             return sentiment, confidence, []
         
         try:
-            if sentiment == 1:  # Positive review
-                # User likes this type of product
-                cleaned = self.preprocess_text(review_text)
-                vectorized = self.tfidf_vectorizer.transform([cleaned])
-                
-                # Find similar products based on review content
-                product_similarities = {}
-                for product in self.master_reviews['name'].unique():
-                    product_reviews = self.master_reviews[self.master_reviews['name'] == product]
-                    positive_pct = (product_reviews['sentiment'] == 1).sum() / len(product_reviews)
-                    product_similarities[product] = positive_pct
-                
-                # Sort by positive sentiment ratio and return top products
-                recs = sorted(product_similarities.items(), key=lambda x: x[1], reverse=True)
-                recommendations = [p[0] for p in recs[:n_recommendations]]
-            else:
-                # Negative review - recommend best rated products
-                product_scores = {}
-                for product in self.master_reviews['name'].unique():
-                    product_reviews = self.master_reviews[self.master_reviews['name'] == product]
-                    positive_pct = (product_reviews['sentiment'] == 1).sum() / len(product_reviews)
-                    product_scores[product] = positive_pct
-                
-                recs = sorted(product_scores.items(), key=lambda x: x[1], reverse=True)
-                recommendations = [p[0] for p in recs[:n_recommendations]]
+            # Use precomputed product scores for fast recommendations
+            recs = sorted(self.product_scores.items(), key=lambda x: x[1], reverse=True)
+            recommendations = [p[0] for p in recs[:n_recommendations]]
             
             return sentiment, confidence, recommendations
         

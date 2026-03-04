@@ -72,6 +72,30 @@ def health():
         "total_products": len(model_manager.master_reviews['name'].unique())
     })
 
+@app.route('/api/debug', methods=['GET'])
+def debug():
+    """Debug endpoint to check file system."""
+    import os
+    debug_info = {
+        "cwd": os.getcwd(),
+        "pickle_dir_exists": os.path.exists('pickle'),
+        "files_in_cwd": os.listdir('.'),
+    }
+    
+    if os.path.exists('pickle'):
+        debug_info['files_in_pickle'] = os.listdir('pickle')
+        debug_info['pickle_file_sizes'] = {}
+        for f in os.listdir('pickle'):
+            try:
+                size = os.path.getsize(os.path.join('pickle', f))
+                debug_info['pickle_file_sizes'][f] = f"{size / (1024*1024):.2f} MB"
+            except:
+                pass
+    else:
+        debug_info['files_in_pickle'] = []
+    
+    return jsonify(debug_info)
+
 if __name__ == '__main__':
     print('\n' + '='*70)
     print('🚀 Sentiment-Based Recommendation System')

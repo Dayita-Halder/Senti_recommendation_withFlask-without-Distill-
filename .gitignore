@@ -68,6 +68,6 @@ Thumbs.db
 htmlcov/
 
 # Build outputs
-*.pkl  # Comment this out if you want to version control trained models
-# Uncomment below to ignore pickle files
+# Pickle files ARE needed for deployment - don't ignore!
+# *.pkl
 # pickle/

@@ -125,6 +125,7 @@ class ModelManager:
         self.cf_recommender = None
         self.master_reviews = None
         self.models_loaded = False
+        self.load_error = None  # Store error message if loading fails
         
         # Initialize NLTK components (will be set in _load_models)
         self.lemmatizer = None
@@ -182,10 +183,12 @@ class ModelManager:
             print("✓ All models loaded successfully")
         
         except Exception as e:
-            print(f"✗ Error loading models: {e}")
-            print(f"Error type: {type(e).__name__}")
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            print(f"✗ Error loading models: {error_msg}")
             import traceback
-            traceback.print_exc()
+            tb_str = traceback.format_exc()
+            print(tb_str)
+            self.load_error = error_msg
             self.models_loaded = False
     
     @staticmethod

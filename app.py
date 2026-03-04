@@ -61,7 +61,9 @@ def health():
         return jsonify({
             "status": "error",
             "models_loaded": False,
-            "message": "Pickle files not loaded. Make sure pickle/ directory exists with required .pkl files"
+            "message": "Pickle files not loaded",
+            "error": model_manager.load_error or "Unknown error during model loading",
+            "hint": "Check pickle/ directory exists with all required .pkl files"
         }), 503
     
     return jsonify({

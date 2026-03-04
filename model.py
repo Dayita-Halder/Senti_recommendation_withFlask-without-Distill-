@@ -107,8 +107,17 @@ class ModelManager:
     def _load_models(self):
         """Load all pickle files."""
         try:
+            print(f"Current working directory: {os.getcwd()}")
+            print(f"Looking for pickle directory: {self.pickle_dir}")
+            
             if not os.path.exists(self.pickle_dir):
+                # List all files in current directory for debugging
+                print(f"Contents of current directory: {os.listdir('.')}")
                 raise FileNotFoundError(f"Pickle directory not found: {self.pickle_dir}")
+            
+            # List pickle files
+            pickle_files = os.listdir(self.pickle_dir)
+            print(f"Files in pickle directory: {pickle_files}")
             
             sentiment_path = os.path.join(self.pickle_dir, 'sentiment_model.pkl')
             tfidf_path = os.path.join(self.pickle_dir, 'tfidf_vectorizer.pkl')
@@ -116,18 +125,22 @@ class ModelManager:
             master_path = os.path.join(self.pickle_dir, 'master_reviews.pkl')
             
             # Load sentiment model
+            print("Loading sentiment model...")
             with open(sentiment_path, 'rb') as f:
                 self.sentiment_model = pickle.load(f)
             
             # Load TF-IDF vectorizer
+            print("Loading TF-IDF vectorizer...")
             with open(tfidf_path, 'rb') as f:
                 self.tfidf_vectorizer = pickle.load(f)
             
             # Load CF recommender with custom unpickler
+            print("Loading CF recommender...")
             with open(cf_path, 'rb') as f:
                 self.cf_recommender = CustomUnpickler(f).load()
             
             # Load master reviews
+            print("Loading master reviews...")
             with open(master_path, 'rb') as f:
                 self.master_reviews = pickle.load(f)
             
@@ -136,6 +149,7 @@ class ModelManager:
         
         except Exception as e:
             print(f"✗ Error loading models: {e}")
+            print(f"Error type: {type(e).__name__}")
             import traceback
             traceback.print_exc()
             self.models_loaded = False

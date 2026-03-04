@@ -78,11 +78,22 @@ def health():
 def debug():
     """Debug endpoint to check file system."""
     import os
+    import sys
+    
     debug_info = {
         "cwd": os.getcwd(),
+        "python_version": sys.version,
         "pickle_dir_exists": os.path.exists('pickle'),
         "files_in_cwd": os.listdir('.'),
     }
+    
+    # Check numpy version
+    try:
+        import numpy as np
+        debug_info['numpy_version'] = np.__version__
+        debug_info['numpy_core_exists'] = hasattr(np, '_core')
+    except Exception as e:
+        debug_info['numpy_error'] = str(e)
     
     if os.path.exists('pickle'):
         debug_info['files_in_pickle'] = os.listdir('pickle')

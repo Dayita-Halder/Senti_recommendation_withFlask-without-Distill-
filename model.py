@@ -246,11 +246,21 @@ class ModelManager:
             cleaned = self.preprocess_text(review_text)
             vectorized = self.tfidf_vectorizer.transform([cleaned])
             prediction = self.sentiment_model.predict(vectorized)[0]
-            confidence = self.sentiment_model.predict_proba(vectorized)[0]
             
-            return int(prediction), float(max(confidence))
+            # Try to get confidence, but use fallback if it fails
+            try:
+                confidence = self.sentiment_model.predict_proba(vectorized)[0]
+                confidence_score = float(max(confidence))
+            except Exception as conf_err:
+                print(f"Warning: Could not get confidence score: {conf_err}")
+                # Use a default confidence of 0.7 if prediction works but confidence doesn't
+                confidence_score = 0.7
+            
+            return int(prediction), confidence_score
         except Exception as e:
             print(f"Error in sentiment prediction: {e}")
+            import traceback
+            traceback.print_exc()
             return None, None
     
     def get_recommendations(self, username, n_recommendations=5, sentiment_filter=True):

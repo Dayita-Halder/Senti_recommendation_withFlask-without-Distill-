@@ -5,18 +5,26 @@ Routes all requests to the Flask application.
 
 import sys
 import os
+import traceback
 
-# Add project root to sys.path so we can import app.py
+# Add project root to sys.path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+sys.path.insert(0, project_root)
 
-# Import the Flask app
+# Try to import Flask app, with detailed error reporting
 try:
     from app import app
-except ImportError as e:
-    print(f"Failed to import app: {e}")
-    raise
+    print("✓ Flask app imported successfully")
+except Exception as e:
+    print(f"✗ Failed to import Flask app: {e}")
+    traceback.print_exc()
+    # Create a minimal error app
+    from flask import Flask, jsonify
+    app = Flask(__name__)
+    
+    @app.route('/')
+    def error():
+        return jsonify({"error": f"Failed to load main app: {str(e)}", "details": traceback.format_exc()}), 500
 
-# Export app as WSGI application for Vercel
-application = app
+# Export as handler for Vercel
+handler = app
